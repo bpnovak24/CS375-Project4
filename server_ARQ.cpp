@@ -77,7 +77,7 @@ int main(void)
   // Setting up connection
   struct sockaddr_in client_addr;
   socklen_t addr_len = sizeof client_addr;
-  char client[INET6_ADDRSTRLEN];
+  char client[INET_ADDRSTRLEN];
   Packet setup_packet_recv;
 
   int numbytes = recvfrom(sockfd, &setup_packet_recv, MAXBUFLEN-1, 0,
