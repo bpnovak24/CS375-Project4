@@ -19,11 +19,11 @@
 
 
 struct Packet{
-  int seqnum;
+  long int seqnum;
   char ACK;
   char control;
   short length;
-  char data[1024];
+  char* data;//help
 };
 
 int main(int argc, char **argv)
@@ -41,8 +41,6 @@ int main(int argc, char **argv)
   exit(1);
   }
 
-    struct sockaddr sender_addr;
-    socklen_t addr_size;
     struct addrinfo hints, *server_info, *ptr;
     int sockfd;
 
@@ -99,11 +97,11 @@ int main(int argc, char **argv)
     setup_packet_send.length = 0;
 
     setup_packet_send.seqnum = htonl(setup_packet_send.seqnum);
-    setup_packet_send.ACK = htons(setup_packet_send.ACK);
-    setup_packet_send.control = htons(setup_packet_send.control);
+    // setup_packet_send.ACK = htons(setup_packet_send.ACK);
+    // setup_packet_send.control = htons(setup_packet_send.control);
     setup_packet_send.length = htons(setup_packet_send.length);
 
-    int bytes_sent = sendto(sockfd, &setup_packet_send, 0, 0, ptr->ai_addr,
+    int bytes_sent = sendto(sockfd, &setup_packet_send, sizeof setup_packet_send, 0, ptr->ai_addr,
                             ptr->ai_addrlen);
     if (bytes_sent == -1){
       perror("send");
@@ -111,15 +109,15 @@ int main(int argc, char **argv)
 
     Packet setup_packet_recv;
 
-    int numbytes = recvfrom(sockfd, &setup_packet_recv, MAXBUFLEN-1, 0,
+    int numbytes = recvfrom(sockfd, &setup_packet_recv, sizeof setup_packet_send, 0,
                             ptr->ai_addr, &ptr->ai_addrlen);
     if (numbytes == -1){
        perror("recvfrom");
        exit(1);
       }
      setup_packet_recv.seqnum = ntohs(setup_packet_recv.seqnum);
-     setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
-     setup_packet_recv.control = ntohs(setup_packet_recv.control);
+     // setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
+     // setup_packet_recv.control = ntohs(setup_packet_recv.control);
      setup_packet_recv.length = ntohs(setup_packet_recv.length);
 
      if ((setup_packet_recv.seqnum == 0) & (setup_packet_recv.ACK == 0) &
