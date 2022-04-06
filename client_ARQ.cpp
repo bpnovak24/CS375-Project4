@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     setup_packet_send.control = 1;
     setup_packet_send.length = 0;
 
-    setup_packet_send.seqnum = htons(setup_packet_send.seqnum);
+    setup_packet_send.seqnum = htonl(setup_packet_send.seqnum);
     setup_packet_send.ACK = htons(setup_packet_send.ACK);
     setup_packet_send.control = htons(setup_packet_send.control);
     setup_packet_send.length = htons(setup_packet_send.length);

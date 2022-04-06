@@ -87,9 +87,9 @@ int main(void)
      exit(1);
     }
   setup_packet_recv.seqnum = ntohl(setup_packet_recv.seqnum);
-  setup_packet_recv.ACK = ntohl(setup_packet_recv.ACK);
-  setup_packet_recv.control = ntohl(setup_packet_recv.control);
-  setup_packet_recv.length = ntohl(setup_packet_recv.length);
+  setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
+  setup_packet_recv.control = ntohs(setup_packet_recv.control);
+  setup_packet_recv.length = ntohs(setup_packet_recv.length);
   printf("%d, %d, %d, %d\n", setup_packet_recv.seqnum, setup_packet_recv.ACK,
 setup_packet_recv.control, setup_packet_recv.length);
 
