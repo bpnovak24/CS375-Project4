@@ -36,8 +36,8 @@ int main(void)
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_PASSIVE; //my IP adddress
 
-  int status;
-  if ((status == getaddrinfo(NULL, MYPORT, &hints, &server_info)) != 0)
+  int status = getaddrinfo(NULL, MYPORT, &hints, &server_info);
+  if (status != 0)
   {
     fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
     return 1;
@@ -71,44 +71,44 @@ int main(void)
   /* ===================================================================================*/
   // Setting up connection
   sockaddr_in client_addr;
-  //socklen_t addr_len = sizeof client_addr;
-  // char client[INET_ADDRSTRLEN];
-//   Packet setup_packet_recv;
-//
-//   int numbytes = recvfrom(sockfd, &setup_packet_recv, MAXBUFLEN-1, 0,
-//        (struct sockaddr *)&client_addr, &addr_len);
-//   if (numbytes == -1){
-//      perror("recvfrom");
-//      exit(1);
-//     }
-//   setup_packet_recv.seqnum = ntohl(setup_packet_recv.seqnum);
-//   // setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
-//   // setup_packet_recv.control = ntohs(setup_packet_recv.control);
-//   setup_packet_recv.length = ntohs(setup_packet_recv.length);
-//   printf("%ld, %d, %d, %d\n", setup_packet_recv.seqnum, setup_packet_recv.ACK,
-// setup_packet_recv.control, setup_packet_recv.length);
-//
-//   if ((setup_packet_recv.seqnum == 0) & (setup_packet_recv.ACK == 0) &
-//       (setup_packet_recv.control == 1) & (setup_packet_recv.length == 0)){
-//     printf("Server: connection setup successful \n");
-//   }
-//
-//   Packet setup_packet_send;
-//   setup_packet_send.seqnum = 0;
-//   setup_packet_send.ACK = 0;
-//   setup_packet_send.control = 1;
-//   setup_packet_send.length = 0;
-//
-//   setup_packet_send.seqnum = htonl(setup_packet_send.seqnum);
-//   // setup_packet_send.ACK = htonl(setup_packet_send.ACK);
-//   // setup_packet_send.control = htonl(setup_packet_send.control);
-//   setup_packet_send.length = htonl(setup_packet_send.length);
-//
-//   int bytes_sent = sendto(sockfd, &setup_packet_send, 0, 0,
-//                             (struct sockaddr *)&client_addr, addr_len);
-//   if (bytes_sent == -1){
-//     perror("send");
-//   }
+  socklen_t addr_len = sizeof client_addr;
+  char client[INET_ADDRSTRLEN];
+  Packet setup_packet_recv;
+
+  int numbytes = recvfrom(sockfd, &setup_packet_recv, MAXBUFLEN-1, 0,
+       (struct sockaddr *)&client_addr, &addr_len);
+  if (numbytes == -1){
+     perror("recvfrom");
+     exit(1);
+    }
+  setup_packet_recv.seqnum = ntohl(setup_packet_recv.seqnum);
+  // setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
+  // setup_packet_recv.control = ntohs(setup_packet_recv.control);
+  setup_packet_recv.length = ntohs(setup_packet_recv.length);
+  printf("%ld, %d, %d, %d\n", setup_packet_recv.seqnum, setup_packet_recv.ACK,
+setup_packet_recv.control, setup_packet_recv.length);
+
+  if ((setup_packet_recv.seqnum == 0) & (setup_packet_recv.ACK == 0) &
+      (setup_packet_recv.control == 1) & (setup_packet_recv.length == 0)){
+    printf("Server: connection setup successful \n");
+  }
+
+  Packet setup_packet_send;
+  setup_packet_send.seqnum = 0;
+  setup_packet_send.ACK = 0;
+  setup_packet_send.control = 1;
+  setup_packet_send.length = 0;
+
+  setup_packet_send.seqnum = htonl(setup_packet_send.seqnum);
+  // setup_packet_send.ACK = htonl(setup_packet_send.ACK);
+  // setup_packet_send.control = htonl(setup_packet_send.control);
+  setup_packet_send.length = htonl(setup_packet_send.length);
+
+  int bytes_sent = sendto(sockfd, &setup_packet_send, sizeof setup_packet_send, 0,
+                            (struct sockaddr *)&client_addr, addr_len);
+  if (bytes_sent == -1){
+    perror("send");
+  }
     // End setup process
   /* ===================================================================================*/
 }

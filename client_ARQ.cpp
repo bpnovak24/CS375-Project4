@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     hints.ai_flags = AI_PASSIVE; //my IP adddress
 
     int status;
-    status == getaddrinfo(argv[1], SERVER_PORT, &hints, &server_info);
+    status = getaddrinfo(argv[1], SERVER_PORT, &hints, &server_info);
     if (status != 0)
     {
       printf("status: %d\n", status);
