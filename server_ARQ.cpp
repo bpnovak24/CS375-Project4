@@ -31,7 +31,7 @@ int main(void)
   int sockfd;
 
   memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET; // IPv4
+	hints.ai_family = AF_INET6; // IPv4
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = 0;
 	hints.ai_flags = AI_PASSIVE; //my IP adddress
@@ -90,6 +90,8 @@ int main(void)
   setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
   setup_packet_recv.control = ntohs(setup_packet_recv.control);
   setup_packet_recv.length = ntohs(setup_packet_recv.length);
+  printf("%d, %d, %d, %d\n", setup_packet_recv.seqnum, setup_packet_recv.ACK,
+setup_packet_recv.control, setup_packet_recv.length);
 
   if ((setup_packet_recv.seqnum == 0) & (setup_packet_recv.ACK == 0) &
       (setup_packet_recv.control == 1) & (setup_packet_recv.length == 0)){
