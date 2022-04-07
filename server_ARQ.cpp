@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <chrono> // Delay Function for testing
+#include <thread> // Delay Function for testing
 #include <poll.h>
 #include <signal.h>
 
@@ -22,7 +24,7 @@ struct Packet{
   char ACK;
   char control;
   short length;
-  char* data;
+  char data[1024];
 };
 
 int main(void)
@@ -73,42 +75,70 @@ int main(void)
   sockaddr_in client_addr;
   socklen_t addr_len = sizeof client_addr;
   char client[INET_ADDRSTRLEN];
-  Packet setup_packet_recv;
+  Packet packet_recv;
 
-  int numbytes = recvfrom(sockfd, &setup_packet_recv, MAXBUFLEN-1, 0,
+  int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
        (struct sockaddr *)&client_addr, &addr_len);
   if (numbytes == -1){
      perror("recvfrom");
      exit(1);
     }
-  setup_packet_recv.seqnum = ntohl(setup_packet_recv.seqnum);
-  // setup_packet_recv.ACK = ntohs(setup_packet_recv.ACK);
-  // setup_packet_recv.control = ntohs(setup_packet_recv.control);
-  setup_packet_recv.length = ntohs(setup_packet_recv.length);
-  printf("%ld, %d, %d, %d\n", setup_packet_recv.seqnum, setup_packet_recv.ACK,
-setup_packet_recv.control, setup_packet_recv.length);
+  packet_recv.seqnum = ntohl(packet_recv.seqnum);
+  packet_recv.length = ntohs(packet_recv.length);
+//   printf("%ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
+// packet_recv.control,packet_recv.length);
 
-  if ((setup_packet_recv.seqnum == 0) & (setup_packet_recv.ACK == 0) &
-      (setup_packet_recv.control == 1) & (setup_packet_recv.length == 0)){
+  if ((packet_recv.seqnum == 0) & (packet_recv.ACK == 0) &
+      (packet_recv.control == 1) & (packet_recv.length == 0)){
     printf("Server: connection setup successful \n");
   }
 
-  Packet setup_packet_send;
-  setup_packet_send.seqnum = 0;
-  setup_packet_send.ACK = 0;
-  setup_packet_send.control = 1;
-  setup_packet_send.length = 0;
+  Packet packet_send;
+  packet_send.seqnum = 0;
+  packet_send.ACK = 1;
+  packet_send.control = 1;
+  packet_send.length = 0;
 
-  setup_packet_send.seqnum = htonl(setup_packet_send.seqnum);
-  // setup_packet_send.ACK = htonl(setup_packet_send.ACK);
-  // setup_packet_send.control = htonl(setup_packet_send.control);
-  setup_packet_send.length = htonl(setup_packet_send.length);
+  packet_send.seqnum = htonl(packet_send.seqnum);
+  packet_send.length = htonl(packet_send.length);
 
-  int bytes_sent = sendto(sockfd, &setup_packet_send, sizeof setup_packet_send, 0,
+  int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
                             (struct sockaddr *)&client_addr, addr_len);
   if (bytes_sent == -1){
     perror("send");
   }
     // End setup process
   /* ===================================================================================*/
+
+  /* ======================================================*/
+  // Receive message
+  numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
+       (struct sockaddr *)&client_addr, &addr_len);
+  if (numbytes == -1){
+     perror("recvfrom");
+     exit(1);
+    }
+  packet_recv.seqnum = ntohl(packet_recv.seqnum);
+  packet_recv.length = ntohs(packet_recv.length);
+  printf("%ld, %d, %d, %d, %s\n", packet_recv.seqnum, packet_recv.ACK,
+            packet_recv.control,packet_recv.length, packet_recv.data);
+/* ===========================================================*/
+// send Ack to client
+packet_send.seqnum = htonl(packet_recv.seqnum);
+packet_send.ACK = 1;
+packet_send.control = 0;
+packet_send.length = htons(0);
+
+printf("%d, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
+          packet_send.control, packet_send.length);
+
+// std::chrono::seconds dura( 7); //test resending
+// std::this_thread::sleep_for( dura );
+
+bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                          (struct sockaddr *)&client_addr, addr_len);
+if (bytes_sent == -1){
+  perror("send");
+}
+
 }
