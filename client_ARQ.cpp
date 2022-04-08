@@ -15,7 +15,7 @@
 
 #define SERVER_PORT "8080"	// the port users will be connecting to
 #define MYPORT 8080
-#define MAXBUFLEN 1034
+#define MAXBUFLEN 1034 // max buffer length, measured in bytes
 
 
 struct Packet{
@@ -23,7 +23,7 @@ struct Packet{
   char ACK;
   char control;
   short length;
-  char data[1024];//help
+  char data[1024];
 };
 
 int main(int argc, char **argv)
@@ -164,9 +164,9 @@ int main(int argc, char **argv)
               }
              packet_recv.seqnum = ntohl(packet_recv.seqnum);
              packet_recv.length = ntohs(packet_recv.length);
-             printf("%ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
+             printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
                       packet_recv.control,packet_recv.length);
-             printf("ACK received!\n");
+             printf("ACK %ld received!\n", packet_recv.seqnum);
           }
       }
      }
