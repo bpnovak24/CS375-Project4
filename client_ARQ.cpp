@@ -128,19 +128,19 @@ int main(int argc, char **argv)
     pfds[1].fd = sockfd;
     pfds[1].events = POLLIN;
 
-    int sequence = 0;
+    long int sequence = 0;
 
-    while(1){
+    while(1){ // quit when someone types exit
       poll(pfds, 2, -1); // wait indefinitely
       if (pfds[0].revents & POLLIN){
-        //while((packet_recv.seqnum != sequence) & (packet_recv.ACK != 1)){
-        while(1){
-          fgets(packet_send.data, 1024, stdin);
-          sequence++;
-          packet_send.seqnum = htonl(sequence);
-          packet_send.ACK = 0;
-          packet_send.control = 0;
-          packet_send.length = htons(strlen(packet_send.data));
+        fgets(packet_send.data, 1024, stdin);
+        sequence++;
+        packet_send.seqnum = htonl(sequence);
+        packet_send.ACK = 0;
+        packet_send.control = 0;
+        packet_send.length = htons(strlen(packet_send.data));
+        while((packet_recv.seqnum != sequence) & (packet_recv.ACK == 1)){
+        //while(1){
           if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
             ptr->ai_addr,ptr->ai_addrlen)) == -1) {
               perror("sendto");
