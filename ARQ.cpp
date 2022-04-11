@@ -17,6 +17,9 @@
 #define MYPORT 8080
 #define MAXBUFLEN 1034 // max buffer length, measured in bytes
 
+bool error(int chance){ // produce an error with probability 1/chance
+return (rand() < (RAND_MAX / chance));
+}
 
 struct Packet{
   long int seqnum;

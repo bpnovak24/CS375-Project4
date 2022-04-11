@@ -17,6 +17,10 @@
 #define MYPORT 8080
 #define MAXBUFLEN 1034 // max buffer length, measured in bytes
 
+bool error(int chance){ // produce an error with probability 1/chance
+return (rand() < (RAND_MAX / chance));
+}
+
 
 struct Packet{
   long int seqnum;
@@ -31,14 +35,14 @@ class Sender{
     Packet packet_send;
     Packet packet_recv;
     int sockfd;
-    sockaddr_in recv_addr;
+    sockaddr recv_addr;
     socklen_t addr_len;
 
 
     //Methods
     int setup_connection(char* hostname){
       struct addrinfo hints, *server_info, *ptr;
-      int sockfd;
+      //int sockfd;
 
       memset(&hints, 0, sizeof hints);
       hints.ai_family = AF_INET; // IPv4
@@ -85,7 +89,7 @@ class Sender{
       }
       /* ===================================================================================*/
       //Setting up connection
-      Packet packet_send;
+      //Packet packet_send;
       packet_send.seqnum = 0;
       packet_send.ACK = 0;
       packet_send.control = 1;
@@ -100,7 +104,7 @@ class Sender{
         perror("send");
       }
 
-      Packet packet_recv;
+      //Packet packet_recv;
 
       int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
                               ptr->ai_addr, &ptr->ai_addrlen);
@@ -111,8 +115,9 @@ class Sender{
        packet_recv.seqnum = ntohs(packet_recv.seqnum);
        packet_recv.length = ntohs(packet_recv.length);
 
-       recv_addr = ptr->ai_addr;
-       addr_len = &ptr->ai_addrlen;
+       recv_addr = *ptr->ai_addr;
+       addr_len = ptr->ai_addrlen;
+
 
        if ((packet_recv.seqnum == 0) & (packet_recv.ACK == 1) &
             (packet_recv.control == 1) & (packet_recv.length == 0)){
@@ -125,6 +130,7 @@ class Sender{
       /* ===================================================================================*/
     }
     void conversation(){
+      struct addrinfo /*hints, *server_info,*/ *ptr;
       struct pollfd pfds[2];
       pfds[0].fd = 0; //stdin
       pfds[0].events = POLLIN; // Report ready to read on incoming connection
@@ -133,7 +139,7 @@ class Sender{
 
       long int sequence = 0;
 
-      while(1){ // quit when someone types exit
+      while(packet_recv.control != 2){ // quit when someone types exit
         poll(pfds, 2, -1); // wait indefinitely
         if (pfds[0].revents & POLLIN){
           fgets(packet_send.data, 1024, stdin);
@@ -141,11 +147,15 @@ class Sender{
           packet_send.seqnum = htonl(sequence);
           packet_send.ACK = 0;
           packet_send.control = 0;
-          packet_send.length = htons(strlen(packet_send.data));
+          packet_send.length = htons(strnlen(packet_send.data,1024));
           while((packet_recv.seqnum != sequence) & (packet_recv.ACK == 1)){
           //while(1){
-            if ((int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-              ptr->ai_addr,ptr->ai_addrlen)) == -1) {
+            if ((strncmp(packet_send.data, "EXIT\n", 6) == 0)){
+              packet_send.control = 2;
+            }
+            int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+              (struct sockaddr *)&recv_addr, addr_len);
+            if (bytes_sent == -1) {
                 perror("sendto");
               exit(1);
             }
@@ -153,14 +163,14 @@ class Sender{
             if (rtt == 0){
               printf("Did not receive ACK --> Resend msg \n");
               if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-                ptr->ai_addr,ptr->ai_addrlen)) == -1) {
+                (struct sockaddr *)&recv_addr, addr_len)) == -1) {
                   perror("sendto");
                 exit(1);
               }
             }
             else if (pfds[1].revents & POLLIN){
               int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
-                                      ptr->ai_addr, &ptr->ai_addrlen);
+                                      (struct sockaddr *)&recv_addr, &addr_len);
               if (numbytes == -1){
                  perror("recvfrom");
                  exit(1);
@@ -174,6 +184,7 @@ class Sender{
         }
        }
      }
+     close(sockfd);
     }
   };
   class Receiver{
@@ -185,7 +196,7 @@ class Sender{
         Packet packet_send;
 
         //Methods
-        int setup_connection(){
+        void setup_connection(){
           struct addrinfo hints, *server_info, *ptr;
           //int sockfd;
 
@@ -199,7 +210,7 @@ class Sender{
           if (status != 0)
           {
             fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-            return 1;
+            exit(1);
           }
 
           for(ptr = server_info; ptr != NULL; ptr = ptr->ai_next) {
@@ -229,7 +240,7 @@ class Sender{
           printf("Chat Server: waiting for connections...\n");
           /* ===================================================================================*/
           // Setting up connection
-          Packet packet_recv;
+          //Packet packet_recv;
 
           int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
                (struct sockaddr *)&sender_addr, &addr_len);
@@ -247,7 +258,8 @@ class Sender{
             printf("Server: connection setup successful \n");
           }
 
-          Packet packet_send;
+          int bytes_sent;
+      //  Packet packet_send;
           packet_send.seqnum = 0;
           packet_send.ACK = 1;
           packet_send.control = 1;
@@ -256,7 +268,7 @@ class Sender{
           packet_send.seqnum = htonl(packet_send.seqnum);
           packet_send.length = htonl(packet_send.length);
 
-          int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+          bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
                                     (struct sockaddr *)&sender_addr, addr_len);
           if (bytes_sent == -1){
             perror("send");
@@ -273,12 +285,13 @@ class Sender{
         pfds[0].events = POLLIN; // Report ready to read on incoming connection
         int pollin_happened;
         long int last_seqnum = packet_recv.seqnum;
+        int bytes_sent;
 
-        while(1){
+        while(packet_send.control != 2){
           /* ======================================================*/
           //Receive message
           int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
-               (struct sockaddr *)&client_addr, &addr_len);
+               (struct sockaddr *)&sender_addr, &addr_len);
           if (numbytes == -1){
              perror("recvfrom");
              exit(1);
@@ -292,12 +305,17 @@ class Sender{
             //discard message
             printf("SEQNUM %ld already recieved: Resending ACK\n", packet_recv.seqnum);
           }
+
         /* ===========================================================*/
         // send Ack to client
           packet_send.seqnum = htonl(packet_recv.seqnum);
           packet_send.ACK = 1;
           packet_send.control = 0;
           packet_send.length = htons(0);
+
+          if (packet_recv.control == 2){
+            packet_send.control = 2;
+          }
 
           if (!error(4)){ // lose a packet 1/4 of the time
 
@@ -308,7 +326,9 @@ class Sender{
             // std::this_thread::sleep_for( dura );
 
             bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-                                      (struct sockaddr *)&client_addr, addr_len);
+                                      (struct sockaddr *)&sender_addr, addr_len);
+                                      //sockfd, &packet_send, sizeof packet_send, 0,
+                                        //ptr->ai_addr,ptr->ai_addrlen
             if (bytes_sent == -1){
               perror("send");
             }
@@ -326,5 +346,6 @@ class Sender{
           //   perror("send");
           // }
         }
-      }
+        close(sockfd);
+      //}
     };
