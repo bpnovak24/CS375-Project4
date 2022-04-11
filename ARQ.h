@@ -29,6 +29,10 @@ struct Packet{
 class Sender{
   public:
     Packet packet_send;
+    Packet packet_recv;
+    int sockfd;
+    sockaddr_in recv_addr;
+    socklen_t addr_len;
 
 
     //Methods
@@ -107,6 +111,9 @@ class Sender{
        packet_recv.seqnum = ntohs(packet_recv.seqnum);
        packet_recv.length = ntohs(packet_recv.length);
 
+       recv_addr = ptr->ai_addr;
+       addr_len = &ptr->ai_addrlen;
+
        if ((packet_recv.seqnum == 0) & (packet_recv.ACK == 1) &
             (packet_recv.control == 1) & (packet_recv.length == 0)){
           printf("Client: connection setup successful \n");
@@ -116,6 +123,57 @@ class Sender{
           return 0;
         }
       /* ===================================================================================*/
+    }
+    void conversation(){
+      struct pollfd pfds[2];
+      pfds[0].fd = 0; //stdin
+      pfds[0].events = POLLIN; // Report ready to read on incoming connection
+      pfds[1].fd = sockfd;
+      pfds[1].events = POLLIN;
+
+      long int sequence = 0;
+
+      while(1){ // quit when someone types exit
+        poll(pfds, 2, -1); // wait indefinitely
+        if (pfds[0].revents & POLLIN){
+          fgets(packet_send.data, 1024, stdin);
+          sequence++;
+          packet_send.seqnum = htonl(sequence);
+          packet_send.ACK = 0;
+          packet_send.control = 0;
+          packet_send.length = htons(strlen(packet_send.data));
+          while((packet_recv.seqnum != sequence) & (packet_recv.ACK == 1)){
+          //while(1){
+            if ((int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+              ptr->ai_addr,ptr->ai_addrlen)) == -1) {
+                perror("sendto");
+              exit(1);
+            }
+            int rtt = poll(pfds, 2, 5000); //Wait 5 seconds
+            if (rtt == 0){
+              printf("Did not receive ACK --> Resend msg \n");
+              if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                ptr->ai_addr,ptr->ai_addrlen)) == -1) {
+                  perror("sendto");
+                exit(1);
+              }
+            }
+            else if (pfds[1].revents & POLLIN){
+              int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+                                      ptr->ai_addr, &ptr->ai_addrlen);
+              if (numbytes == -1){
+                 perror("recvfrom");
+                 exit(1);
+                }
+               packet_recv.seqnum = ntohl(packet_recv.seqnum);
+               packet_recv.length = ntohs(packet_recv.length);
+               printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
+                        packet_recv.control,packet_recv.length);
+               printf("ACK %ld received!\n", packet_recv.seqnum);
+            }
+        }
+       }
+     }
     }
   };
   class Receiver{
@@ -206,5 +264,67 @@ class Sender{
             // End setup process
           /* ===================================================================================*/
         }
+      void conversation(){
+        /* ======================================================*/
+        // Receive message and send ACK
+        struct pollfd pfds[1];
+        // Add the listener to set
+        pfds[0].fd = sockfd;
+        pfds[0].events = POLLIN; // Report ready to read on incoming connection
+        int pollin_happened;
+        long int last_seqnum = packet_recv.seqnum;
 
+        while(1){
+          /* ======================================================*/
+          //Receive message
+          int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
+               (struct sockaddr *)&client_addr, &addr_len);
+          if (numbytes == -1){
+             perror("recvfrom");
+             exit(1);
+            }
+          packet_recv.seqnum = ntohl(packet_recv.seqnum);
+          packet_recv.length = ntohs(packet_recv.length);
+          printf("Recieved: %ld, %d, %d, %d, %s\n", packet_recv.seqnum, packet_recv.ACK,
+                    packet_recv.control,packet_recv.length, packet_recv.data);
+
+          if (packet_recv.seqnum <= last_seqnum){
+            //discard message
+            printf("SEQNUM %ld already recieved: Resending ACK\n", packet_recv.seqnum);
+          }
+        /* ===========================================================*/
+        // send Ack to client
+          packet_send.seqnum = htonl(packet_recv.seqnum);
+          packet_send.ACK = 1;
+          packet_send.control = 0;
+          packet_send.length = htons(0);
+
+          if (!error(4)){ // lose a packet 1/4 of the time
+
+            printf("Sending: %d, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
+                      packet_send.control, packet_send.length);
+
+            // std::chrono::seconds dura( 7); //test resending
+            // std::this_thread::sleep_for( dura );
+
+            bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                                      (struct sockaddr *)&client_addr, addr_len);
+            if (bytes_sent == -1){
+              perror("send");
+            }
+          }
+          else{
+            printf("lol packet lost that's awkward\n");
+          }
+        }
+
+          // printf("Sending: %d, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
+          //             packet_send.control, packet_send.length);
+          // int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+          //                             (struct sockaddr *)&client_addr, addr_len);
+          // if (bytes_sent == -1){
+          //   perror("send");
+          // }
+        }
+      }
     };

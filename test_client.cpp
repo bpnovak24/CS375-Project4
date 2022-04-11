@@ -9,6 +9,7 @@ int main(int argc, char **argv){
     printf("Unable to successfully connect to host\n");
     exit(1);
   }
+  sender.conversation();
 return 0;
 
 }
