@@ -189,7 +189,7 @@ class Sender{
                packet_recv.length = ntohs(packet_recv.length);
                // printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
                //          packet_recv.control,packet_recv.length);
-               printf("ACK %ld received!\n", packet_recv.seqnum);
+               printf("SEQNUM %ld received!\n", packet_recv.seqnum);
             }
         }
        }
@@ -302,7 +302,6 @@ class Sender{
         //char *buf=malloc(sizeof(char));
         Packet* buffer[window+1];
         //Packet* buffer = malloc(sizeof(Packet));
-        NFE = 1;
         LFA = (NFE + window)-1;
         int buffer_index;
         int i;
@@ -320,27 +319,37 @@ class Sender{
           packet_recv.length = ntohs(packet_recv.length);
           printf("Recieved: %ld, %d, %d, %d, %s\n", packet_recv.seqnum, packet_recv.ACK,
                     packet_recv.control,packet_recv.length, packet_recv.data);
-          if (packet_recv.seqnum <= NFE){
+          if (packet_recv.seqnum < NFE){
             //discard message
-            printf("SEQNUM %ld already recieved: Resending ACK\n", packet_recv.seqnum);
+            printf("Disregard message-- less than NFE\n");
           }
           if ((packet_recv.seqnum >= NFE) & (packet_recv.seqnum <= LFA)){
         /* ===========================================================*/
         // send Ack to client
             buffer_index = (packet_recv.seqnum % window)-1;
             buffer[buffer_index] = &packet_recv;
+            // printf("packet_recv seqnum: %ld\n", packet_recv.seqnum);
+            // printf("buffer index: %d\n", buffer_index);
+            // printf("NFE: %ld \n", NFE);
+            // printf("(*(buffer[0])).seqnum: %ld\n",(*(buffer[0])).seqnum);
 
             if (packet_recv.seqnum == NFE){
-              for (i = buffer_index; i < buffer_index+window; i++){
-                if ((buffer[i] == NULL) | ((*(buffer[i])).seqnum < NFE)){
-                  break;
+              packet_send.seqnum = NFE;
+              NFE++;
+              for (i = buffer_index+1; i < buffer_index+window; i++){
+                if ((*(buffer[i])).seqnum == NFE){
+                  packet_send.seqnum = NFE;
+                  NFE++;
                 }
                 else{
-                  packet_send.seqnum = (*(buffer[i])).seqnum;
+                  break;
                 }
               }
             }
-            NFE = packet_send.seqnum;
+
+            printf("packet_send seqnum: %ld\n", packet_send.seqnum);
+            printf("NFE: %ld\n", NFE);
+
             packet_send.seqnum = htonl(packet_send.seqnum);
             packet_send.ACK = 1;
             packet_send.control = 0;
@@ -352,7 +361,7 @@ class Sender{
 
             if (!error(4)){ // lose a packet 1/4 of the time
 
-              printf("Sending: %d, %d, %d, %d\n", packet_send.seqnum, packet_send.ACK,
+              printf("Sending: %ld, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
                         packet_send.control, packet_send.length);
 
               // std::chrono::seconds dura( 7); //test resending
