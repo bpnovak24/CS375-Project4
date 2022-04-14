@@ -143,59 +143,132 @@ class Sender{
       pfds[1].events = POLLIN;
 
       long int sequence = 0;
-      LAR = 0;
-      LFS = 0;
+      LAR = 0; //Last Ack Receieved
+      LFS = 0; //Last Frame Sent
+      int window = 5;
+      Packet* buffer[window+1];
+      LFS = LAR + window;
+      int buffer_index=0;
 
-      while(packet_recv.control != 2){ // quit when someone types exit
-        poll(pfds, 2, -1); // wait indefinitely
-        if (pfds[0].revents & POLLIN){
-          fgets(packet_send.data, 1024, stdin);
-          sequence++;
-          packet_send.seqnum = htonl(sequence);
-          packet_send.ACK = 0;
-          packet_send.control = 0;
-          packet_send.length = htons(strnlen(packet_send.data,1024));
-          while((packet_recv.seqnum != sequence) & (packet_recv.ACK == 1)){
-          //while(1){
-            if ((strncmp(packet_send.data, "EXIT\n", 6) == 0)){
-              packet_send.control = 2;
-            }
-            int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-              (struct sockaddr *)&recv_addr, addr_len);
-            if (bytes_sent == -1) {
-                perror("sendto");
-              exit(1);
-            }
-            int rtt = poll(pfds, 2, 5000); //Wait 5 seconds
-            if (rtt == 0){
-              printf("Did not receive ACK --> Resend msg \n");
-              if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-                (struct sockaddr *)&recv_addr, addr_len)) == -1) {
+
+      /*------------------------------------------------------------------ */
+      //trying sometihnh new
+      while(packet_recv.control != 2){
+        poll(pfds, 2, -1);
+        while (buffer[window+1] == NULL){ // This probably isnt right
+            if (pfds[0].revents & POLLIN){
+              fgets(packet_send.data, 1024, stdin);
+              sequence++;
+              packet_send.seqnum = htonl(sequence);
+              packet_send.ACK = 0;
+              packet_send.control = 0;
+              packet_send.length = htons(strnlen(packet_send.data,1024));
+              buffer_index = (packet_send.seqnum % window)-1;
+              buffer[buffer_index] = &packet_send;
+              int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                                  (struct sockaddr *)&recv_addr, addr_len);
+              if (bytes_sent == -1) {
                   perror("sendto");
                 exit(1);
+               }
+              int rtt = poll(pfds, 2, 5000); //Wait 5 seconds
+              if (rtt == 0){
+                printf("Did not receive ACK --> Resend msg \n");
+                if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                    (struct sockaddr *)&recv_addr, addr_len)) == -1) {
+                      perror("sendto");
+                   exit(1);
+                 }
               }
-            }
-            else if (pfds[1].revents & POLLIN){
-              int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
-                                      (struct sockaddr *)&recv_addr, &addr_len);
-              if (LAR + 1 == packet_recv.seqnum){
-                        LAR ++;
-              }
-              if (numbytes == -1){
-                 perror("recvfrom");
-                 exit(1);
+              else if (pfds[1].revents & POLLIN){
+                int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+                                        (struct sockaddr *)&recv_addr, &addr_len);
+                if (LAR + 1 == packet_recv.seqnum){
+                          LAR++;
                 }
-               packet_recv.seqnum = ntohl(packet_recv.seqnum);
-               packet_recv.length = ntohs(packet_recv.length);
-               // printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
-               //          packet_recv.control,packet_recv.length);
-               printf("SEQNUM %ld received!\n", packet_recv.seqnum);
+                for (i=buffer_index; i < buffer_index+window; i++){
+                  if ((*(buffer[i])).seqnum == LAR+1){
+                        LAR++;
+                   }
+                 }
+                if (numbytes == -1){
+                   perror("recvfrom");
+                   exit(1);
+                }
+              }
             }
+          }
         }
-       }
-     }
-     close(sockfd);
-    }
+            // if (pfds[1].revents & POLLIN){
+            //     int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+            //                             (struct sockaddr *)&recv_addr, &addr_len);
+            //     if (numbytes == -1){
+            //         perror("recvfrom");
+            //         exit(1);
+            //       }
+            //     packet_recv.seqnum = ntohl(packet_recv.seqnum);
+            //     packet_recv.length = ntohs(packet_recv.length);
+            //     printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum,
+            //     packet_recv.ACK, packet_recv.control,packet_recv.length);
+            //     printf("SEQNUM %ld received!\n", packet_recv.seqnum);
+            //     if (packet_recv.seqnum == LAR+1){
+            //       LAR++;
+            //     }
+            //   }
+
+        /*------------------------------------------------------------------ */
+
+
+        //while(packet_recv.control != 2){
+        // poll(pfds, 2, -1); // wait indefinitely
+        // if (pfds[0].revents & POLLIN){
+        //   fgets(packet_send.data, 1024, stdin);
+        //   sequence++;
+        //   packet_send.seqnum = htonl(sequence);
+        //   packet_send.ACK = 0;
+        //   packet_send.control = 0;
+        //   packet_send.length = htons(strnlen(packet_send.data,1024));
+    //       while((packet_recv.seqnum != sequence) & (packet_recv.ACK == 1)){
+    //       // while(){
+    //         if ((strncmp(packet_send.data, "EXIT\n", 6) == 0)){
+    //           packet_send.control = 2;
+    //         }
+    //         int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+    //           (struct sockaddr *)&recv_addr, addr_len);
+    //         if (bytes_sent == -1) {
+    //             perror("sendto");
+    //           exit(1);
+    //         }
+    //         int rtt = poll(pfds, 2, 5000); //Wait 5 seconds
+    //         if (rtt == 0){
+    //           printf("Did not receive ACK --> Resend msg \n");
+    //           if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+    //             (struct sockaddr *)&recv_addr, addr_len)) == -1) {
+    //               perror("sendto");
+    //             exit(1);
+    //           }
+    //         }
+    //         else if (pfds[1].revents & POLLIN){
+    //           int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+    //                                   (struct sockaddr *)&recv_addr, &addr_len);
+    //           if (LAR + 1 == packet_recv.seqnum){
+    //                     LAR ++;
+    //           }
+    //           if (numbytes == -1){
+    //              perror("recvfrom");
+    //              exit(1);
+    //             }
+    //            packet_recv.seqnum = ntohl(packet_recv.seqnum);
+    //            packet_recv.length = ntohs(packet_recv.length);
+    //            // printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
+    //            //          packet_recv.control,packet_recv.length);
+    //            printf("SEQNUM %ld received!\n", packet_recv.seqnum);
+    //         }
+    //     }
+    //    }
+    //  }
+    //  close(sockfd);
+    // }
   };
   class Receiver{
       public:
