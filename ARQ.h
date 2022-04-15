@@ -36,7 +36,7 @@ struct Packet{
 
 class Sender{
   public:
-    Packet packet_send;
+    //Packet packet_send;
     Packet packet_recv;
     int sockfd;
     sockaddr recv_addr;
@@ -98,7 +98,7 @@ class Sender{
       }
       /* ===================================================================================*/
       //Setting up connection
-      //Packet packet_send;
+      Packet packet_send;
       packet_send.seqnum = 0;
       packet_send.ACK = 0;
       packet_send.control = 1;
@@ -150,12 +150,15 @@ class Sender{
       Packet* buffer[window+1];
       int buffer_index=0;
       int i;
+      int LAR_index = 0;
+      int LFS_index = 0;
 
       /*------------------------------------------------------------------ */
       //trying sometihnh new
       while(packet_recv.control != 2){
         while (buffer[window+1] != NULL){ // This probably isnt right
             poll(pfds, 2, -1);
+            Packet* packet_send = new Packet;
             if (pfds[1].revents & POLLIN){
               //THIS IF STATEMENT ACCOUNTS FOR RECEIVING AN ACK
               // WHEN IT FAILED THE FIRST TIME!
@@ -169,26 +172,30 @@ class Sender{
               packet_recv.length = ntohs(packet_recv.length);
               printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
               packet_recv.control, packet_recv.length);
-              for (i = buffer_index; i < buffer_index+window; i++){
+              for (i = LAR_index; i <= LFS_index; i++){
                 if (ntohl((*(buffer[i])).seqnum) == LAR+1){
                   LAR++;
+                  LAR_index = (LAR % window)-1;
                 }
                 else{
                   break;
                 }
              }
-             printf("LAR: %ld\n", LAR);
-             printf("LFS: %ld\n", LFS);
+             printf("1-LAR: %ld\n", LAR);
+             printf("1-LFS: %ld\n", LFS);
            }
            if (pfds[0].revents & POLLIN){
-              fgets(packet_send.data, 1024, stdin);
+              fgets(packet_send->data, 1024, stdin);
               sequence++;
-              packet_send.seqnum = htonl(sequence);
-              packet_send.ACK = 0;
-              packet_send.control = 0;
-              packet_send.length = htons(strnlen(packet_send.data,1024));
-              buffer_index = (packet_send.seqnum % window)-1;
-              buffer[buffer_index] = &packet_send;
+              packet_send->seqnum = htonl(sequence);
+              packet_send->ACK = 0;
+              packet_send->control = 0;
+              packet_send->length = htons(strnlen(packet_send->data,1024));
+              buffer_index = (ntohl(packet_send->seqnum) % window)-1;
+              buffer[buffer_index] = packet_send;
+              for (i=0; i < buffer_index+1; i++){
+                printf("buffer[%d]: %d\n",i, ntohl((*(buffer[i])).seqnum));
+              }
               int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
                                   (struct sockaddr *)&recv_addr, addr_len);
               if (bytes_sent == -1) {
@@ -196,6 +203,7 @@ class Sender{
                 exit(1);
                }
               LFS++;
+              LFS_index = (LFS % window)-1;
               int wait = poll(pfds, 2, 5000); //Wait 5 seconds
               if (wait == 0){
                 printf("Did not receive ACK --> Resend msg \n");
@@ -216,16 +224,16 @@ class Sender{
                 packet_recv.length = ntohs(packet_recv.length);
                 printf("Packet Received: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
                           packet_recv.control,packet_recv.length);
-                for (i = buffer_index; i < buffer_index+window; i++){
-                  if (ntohl((*(buffer[i])).seqnum) == LAR+1){
-                    LAR++;
-                  }
-                  else{
-                    break;
+
+                for (i = LAR_index; i <= LFS_index; i++){
+                  printf("buffer[%d]: %d\n", i, ntohl((*(buffer[i])).seqnum));
+                  if (ntohl((*(buffer[i])).seqnum) > LAR){
+                    LAR = ntohl((*(buffer[i])).seqnum);
+                    LAR_index = (LAR % window)-1;
                   }
                 }
-                printf("LAR: %ld\n", LAR);
-                printf("LFS: %ld\n", LFS);
+                printf("2-LAR: %ld\n", LAR);
+                printf("2-LFS: %ld\n", LFS);
             }
           }
         }
