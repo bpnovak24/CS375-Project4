@@ -37,15 +37,12 @@ struct Packet{
 class Sender{
   public:
     //Packet packet_send;
-    Packet packet_recv;
+    //Packet packet_recv;
     int sockfd;
     sockaddr recv_addr;
     socklen_t addr_len;
-
-    long int LAR;//last ack Recieved
-    long int LFS;//last frame sent
-    Packet* buffer;
-    double rtt;
+    //Packet* buffer;
+    //double rtt;
 
 
     //Methods
@@ -113,6 +110,7 @@ class Sender{
         perror("send");
       }
 
+      Packet packet_recv;
       int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
                               ptr->ai_addr, &ptr->ai_addrlen);
       if (numbytes == -1){
@@ -144,6 +142,8 @@ class Sender{
       pfds[1].events = POLLIN;
 
       long int sequence = 0;
+      long int LAR;//last ack Recieved
+      long int LFS;//last frame sent
       LAR = 0; //Last Ack Receieved
       LFS = 0; //Last Frame Sent
       int window = 5;
@@ -152,33 +152,35 @@ class Sender{
       int i;
       int LAR_index = 0;
       int LFS_index = 0;
+      Packet* packet_recv = new Packet;
 
       /*------------------------------------------------------------------ */
       //trying sometihnh new
-      while(packet_recv.control != 2){
+      while(packet_recv->control != 2){
         while (buffer[window+1] != NULL){ // This probably isnt right
             poll(pfds, 2, -1);
             Packet* packet_send = new Packet;
             if (pfds[1].revents & POLLIN){
               //THIS IF STATEMENT ACCOUNTS FOR RECEIVING AN ACK
               // WHEN IT FAILED THE FIRST TIME!
-              int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+              printf("1 before new packet\n");
+              Packet* packet_recv = new Packet;
+              printf("1 after new packet\n");
+              int numbytes = recvfrom(sockfd, packet_recv, sizeof packet_recv, 0,
                                       (struct sockaddr *)&recv_addr, &addr_len);
               if (numbytes == -1){
                 perror("recvfrom");
                 exit(1);
               }
-              packet_recv.seqnum = ntohl(packet_recv.seqnum);
-              packet_recv.length = ntohs(packet_recv.length);
-              printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
-              packet_recv.control, packet_recv.length);
+              packet_recv->seqnum = ntohl(packet_recv->seqnum);
+              packet_recv->length = ntohs(packet_recv->length);
+              printf("Packet Recieved: %ld, %d, %d, %d\n", packet_recv->seqnum, packet_recv->ACK,
+              packet_recv->control, packet_recv->length);
               for (i = LAR_index; i <= LFS_index; i++){
-                if (ntohl((*(buffer[i])).seqnum) == LAR+1){
-                  LAR++;
+                printf("buffer[%d]: %d\n", i, ntohl((*(buffer[i])).seqnum));
+                if (ntohl((*(buffer[i])).seqnum) > LAR){
+                  LAR = ntohl((*(buffer[i])).seqnum);
                   LAR_index = (LAR % window)-1;
-                }
-                else{
-                  break;
                 }
              }
              printf("1-LAR: %ld\n", LAR);
@@ -193,10 +195,9 @@ class Sender{
               packet_send->length = htons(strnlen(packet_send->data,1024));
               buffer_index = (ntohl(packet_send->seqnum) % window)-1;
               buffer[buffer_index] = packet_send;
-              for (i=0; i < buffer_index+1; i++){
-                printf("buffer[%d]: %d\n",i, ntohl((*(buffer[i])).seqnum));
-              }
-              int bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+              printf("Sending: %d, %d, %d, %d\n", ntohl(packet_send->seqnum), packet_send->ACK,
+                        packet_send->control, packet_send->length);
+              int bytes_sent = sendto(sockfd, packet_send, sizeof packet_send, 0,
                                   (struct sockaddr *)&recv_addr, addr_len);
               if (bytes_sent == -1) {
                   perror("sendto");
@@ -207,23 +208,26 @@ class Sender{
               int wait = poll(pfds, 2, 5000); //Wait 5 seconds
               if (wait == 0){
                 printf("Did not receive ACK --> Resend msg \n");
-                if ((bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+                if ((bytes_sent = sendto(sockfd, packet_send, sizeof packet_send, 0,
                     (struct sockaddr *)&recv_addr, addr_len)) == -1) {
                       perror("sendto");
                    exit(1);
                  }
               }
               else if (pfds[1].revents & POLLIN){
-                int numbytes = recvfrom(sockfd, &packet_recv, sizeof packet_send, 0,
+                printf("before new packet\n");
+                Packet* packet_recv = new Packet;
+                printf("after new packet\n");
+                int numbytes = recvfrom(sockfd, packet_recv, sizeof packet_recv, 0,
                                         (struct sockaddr *)&recv_addr, &addr_len);
                 if (numbytes == -1){
                   perror("recvfrom");
                   exit(1);
                 }
-                packet_recv.seqnum = ntohl(packet_recv.seqnum);
-                packet_recv.length = ntohs(packet_recv.length);
-                printf("Packet Received: %ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
-                          packet_recv.control,packet_recv.length);
+                packet_recv->seqnum = ntohl(packet_recv->seqnum);
+                packet_recv->length = ntohs(packet_recv->length);
+                printf("Packet Received: %ld, %d, %d, %d, %s\n", packet_recv->seqnum, packet_recv->ACK,
+                          packet_recv->control,packet_recv->length, packet_recv->data);
 
                 for (i = LAR_index; i <= LFS_index; i++){
                   printf("buffer[%d]: %d\n", i, ntohl((*(buffer[i])).seqnum));
@@ -242,13 +246,13 @@ class Sender{
 };
   class Receiver{
       public:
-        Packet packet_recv;
+        //Packet packet_recv;
         int sockfd;
         sockaddr_in sender_addr;
         socklen_t addr_len;
-        Packet packet_send;
+      //Packet packet_send;
 
-        //Methods
+      //Methods
         void setup_connection(){
           struct addrinfo hints, *server_info, *ptr;
           //int sockfd;
@@ -293,7 +297,7 @@ class Sender{
           printf("Chat Server: waiting for connections...\n");
           /* ===================================================================================*/
           // Setting up connection
-          //Packet packet_recv;
+          Packet packet_recv;
 
           int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
                (struct sockaddr *)&sender_addr, &addr_len);
@@ -303,8 +307,6 @@ class Sender{
             }
           packet_recv.seqnum = ntohl(packet_recv.seqnum);
           packet_recv.length = ntohs(packet_recv.length);
-        //   printf("%ld, %d, %d, %d\n", packet_recv.seqnum, packet_recv.ACK,
-        // packet_recv.control,packet_recv.length);
 
           if ((packet_recv.seqnum == 0) & (packet_recv.ACK == 0) &
               (packet_recv.control == 1) & (packet_recv.length == 0)){
@@ -312,7 +314,7 @@ class Sender{
           }
 
           int bytes_sent;
-      //  Packet packet_send;
+          Packet packet_send;
           packet_send.seqnum = 0;
           packet_send.ACK = 1;
           packet_send.control = 1;
@@ -321,7 +323,6 @@ class Sender{
           packet_send.seqnum = htonl(packet_send.seqnum);
           packet_send.length = htons(packet_send.length);
 
-          //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
           bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
                                     (struct sockaddr *)&sender_addr, addr_len);
           if (bytes_sent == -1){
@@ -333,9 +334,9 @@ class Sender{
       void conversation(){
         /* ======================================================*/
         // Receive message and send ACK
-        struct pollfd pfds[1];
+        //struct pollfd pfds[1];
         // Add the listener to set
-        long int last_seqnum = packet_recv.seqnum;
+        long int last_seqnum = 0;
         int bytes_sent;
         int window = 5;
         long int NFE = 1;//next frame expected
@@ -344,43 +345,45 @@ class Sender{
         LFA = (NFE + window)-1;
         int buffer_index;
         int i;
+        Packet* packet_send = new Packet;
 
-        while(packet_send.control != 2){
+        while(packet_send->control != 2){
           /* ======================================================*/
           //Receive message
-          int numbytes = recvfrom(sockfd, &packet_recv, MAXBUFLEN-1, 0,
+          Packet* packet_recv = new Packet;
+          int numbytes = recvfrom(sockfd, packet_recv, MAXBUFLEN-1, 0,
                (struct sockaddr *)&sender_addr, &addr_len);
           if (numbytes == -1){
              perror("recvfrom");
              exit(1);
             }
-          packet_recv.seqnum = ntohl(packet_recv.seqnum);
-          packet_recv.length = ntohs(packet_recv.length);
-          printf("Received: %ld, %d, %d, %d, %s", packet_recv.seqnum, packet_recv.ACK,
-                    packet_recv.control,packet_recv.length, packet_recv.data);
-          if (packet_recv.seqnum < NFE){
-            packet_send.seqnum = htonl(packet_recv.seqnum);
-            packet_send.ACK = 1;
-            packet_send.control = 0;
-            packet_send.length = htons(0);
-            printf("Resending: %d, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
-                      packet_send.control, packet_send.length);
+          packet_recv->seqnum = ntohl(packet_recv->seqnum);
+          packet_recv->length = ntohs(packet_recv->length);
+          printf("Received: %ld, %d, %d, %d, %s", packet_recv->seqnum, packet_recv->ACK,
+                    packet_recv->control,packet_recv->length, packet_recv->data);
+          if (packet_recv->seqnum < NFE){
+            packet_send->seqnum = htonl(packet_recv->seqnum);
+            packet_send->ACK = 1;
+            packet_send->control = 0;
+            packet_send->length = htons(0);
+            printf("Resending: %d, %d, %d, %d, %s\n", ntohl(packet_send->seqnum), packet_send->ACK,
+                      packet_send->control, packet_send->length, packet_send->data);
             //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
-                                      (struct sockaddr *)&sender_addr, addr_len);
+            bytes_sent = sendto(sockfd, packet_send, sizeof packet_send, 0,
+                                (struct sockaddr *)&sender_addr, addr_len);
           }
-          else if ((packet_recv.seqnum >= NFE) & (packet_recv.seqnum <= LFA)){
+          else if ((packet_recv->seqnum >= NFE) & (packet_recv->seqnum <= LFA)){
         /* ===========================================================*/
         // send Ack to client
-            buffer_index = (packet_recv.seqnum % window)-1;
-            buffer[buffer_index] = &packet_recv;
-            if (packet_recv.seqnum == NFE){
-              packet_send.seqnum = NFE;
+            buffer_index = (packet_recv->seqnum % window)-1;
+            buffer[buffer_index] = packet_recv;
+            if (packet_recv->seqnum == NFE){
+              packet_send->seqnum = NFE;
               NFE++;
               for (i = buffer_index+1; i < buffer_index+window; i++){
                 if ((*(buffer[i])).seqnum == NFE){
                   printf("SENDING MORE THAN 1 ACK");
-                  packet_send.seqnum = NFE;
+                  packet_send->seqnum = NFE;
                   NFE++;
                 }
                 else{
@@ -389,25 +392,25 @@ class Sender{
               }
             }
             LFA = NFE + window;
-            printf("packet_send seqnum: %ld\n", packet_send.seqnum);
-            packet_send.seqnum = htonl(packet_send.seqnum);
-            packet_send.ACK = 1;
-            packet_send.control = 0;
-            packet_send.length = htons(0);
+            printf("packet_send seqnum: %ld\n", packet_send->seqnum);
+            packet_send->seqnum = htonl(packet_send->seqnum);
+            packet_send->ACK = 1;
+            packet_send->control = 0;
+            packet_send->length = htons(0);
 
-            if (packet_recv.control == 2){
-              packet_send.control = 2;
+            if (packet_recv->control == 2){
+              packet_send->control = 2;
             }
 
-            if (ntohl(packet_send.seqnum) % 2 != 0){ // lose a packet 1/4 of the time
+            if (ntohl(packet_send->seqnum) % 2 != 0){ // lose a packet 1/4 of the time
 
-              printf("Sending: %d, %d, %d, %d\n", ntohl(packet_send.seqnum), packet_send.ACK,
-                        packet_send.control, packet_send.length);
+              printf("Sending: %d, %d, %d, %d\n", ntohl(packet_send->seqnum), packet_send->ACK,
+                        packet_send->control, packet_send->length);
 
               // std::chrono::seconds dura( 7); //test resending
               // std::this_thread::sleep_for( dura );
               //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-              bytes_sent = sendto(sockfd, &packet_send, sizeof packet_send, 0,
+              bytes_sent = sendto(sockfd, packet_send, sizeof packet_send, 0,
                                         (struct sockaddr *)&sender_addr, addr_len);
                                         //sockfd, &packet_send, sizeof packet_send, 0,
                                           //ptr->ai_addr,ptr->ai_addrlen
@@ -416,7 +419,7 @@ class Sender{
               }
             }
             else{
-              printf("lol packet %d lost that's awkward\n", ntohl(packet_send.seqnum));
+              printf("lol packet %d lost that's awkward\n", ntohl(packet_send->seqnum));
             }
           }
           printf("NFE: %ld\n", NFE);
