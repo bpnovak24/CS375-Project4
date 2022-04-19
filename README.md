@@ -1,6 +1,6 @@
 # CS375 Computer Networking
 ### Project 4 - Sliding Window Protocol
-#### Brandon Novak and Ollie Strasburgh
+#### Brandon Novak and Ollie Strasburg
 
 
 For project 4, we implemented the Sliding Window Protocol on UDP sockets. All relevant code pertaining to our protocol is found in `ARQ.h`, and `test_client.cpp` and `test_client.cpp` are the test files for the client/sender and server/receiver, respectively.
