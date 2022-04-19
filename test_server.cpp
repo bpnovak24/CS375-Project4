@@ -2,8 +2,8 @@
 
 
 int main(int argc, char **argv){
-  Receiver receiver;
+  Receiver receiver;//initialize receiver
   receiver.setup_connection();
-  receiver.conversation();
+  receiver.conversation();//talk to the sender
   return 0;
 }
