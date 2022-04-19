@@ -35,6 +35,15 @@ Methods:
 
 Bind IP address to a socket using the techniques from the last Project 1 and Project 2. 
 
+We initialize a Packet called `packet_send` and we initialize with the following elements:
+```
+packet_send.seqnum = 0;
+packet_send.ACK = 0;
+packet_send.control = 1;
+packet_send.length = 0;
+packet_send.seqnum = htonl(packet_send.seqnum);
+packet_send.length = htons(packet_send.length);
+```
 
-
+We give those particular values because 
 
