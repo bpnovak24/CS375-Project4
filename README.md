@@ -45,5 +45,41 @@ packet_send.seqnum = htonl(packet_send.seqnum);
 packet_send.length = htons(packet_send.length);
 ```
 
-We give those particular values because 
+We give those particular values because those are the values which indicate the Sender would like to connect with the Receiver. We convert the `seqnum` and `length` into network order bytes. We send the packet to the Receiver, and wait for a response from the Receiver. Once the Sender receives a response from the Receiver, and the response is the same excepot for the ACK field (which should equal 1), then the Sender will print "Client: connection setup successful" and return 1. If the response did not contain the correct data in the elements, then it will return 0.
+
+#### void conversation()
+
+Initialize pollfd in order to identify a message to send and a message to receive.
+
+```
+struct pollfd pfds[2];
+pfds[0].fd = 0;
+pfds[0].events = POLLIN;
+pfds[1].fd = sockfd;
+pfds[1].events = POLLIN;
+```
+
+We initialize the Last ACK Received and the Last Frame Sent as `LAR` and `LFS`. The window size is initialized as 5. We initialize a pointer to a `Packet` array of size `window` + 1. 
+
+```
+long int LAR;//last ack Recieved
+long int LFS;//last frame sent
+int window = 5;
+int size = window + 1;
+Packet* buffer[size];
+```
+
+Then we continue unto a while loop that will only break if the `packet_recv`'s control equals 2 because a control of 2 indicates that the conversation is over. As of right now, the only way to activate a control of 2 is for the Sender to send the message "EXIT".
+
+Inside the while loop, the function polls to see if it should sending or receiving, and we dynmically allocate memory for the `packet_send`. 
+
+First, we check if the 
+
+
+
+
+
+
+
+
 
